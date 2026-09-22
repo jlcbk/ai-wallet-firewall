@@ -1,50 +1,56 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/jlcbk/ai-wallet-firewall/blob/main/protocol/policy.schema.json",
-  "title": "ESP32 hard signing policy",
+  "title": "ESP32 硬签名策略",
+  "description": "由 ESP32 在离线运行模式下执行的硬策略数据模型。它描述允许的链、限额、合约和方法，不代表最终的认证 provisioning 包。",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "policy_version", "policy_id", "chain_ids", "limits"],
   "properties": {
-    "schema_version": { "type": "integer", "const": 1 },
-    "policy_version": { "type": "integer", "minimum": 1 },
-    "policy_id": { "type": "string", "pattern": "^[a-zA-Z0-9._-]{1,64}$" },
+    "schema_version": { "type": "integer", "const": 1, "description": "策略数据模型的 Schema 版本。" },
+    "policy_version": { "type": "integer", "minimum": 1, "description": "单调递增的策略版本，用于防止意外回滚。" },
+    "policy_id": { "type": "string", "pattern": "^[a-zA-Z0-9._-]{1,64}$", "description": "人和设备用于识别策略的稳定标识。" },
     "chain_ids": {
       "type": "array",
       "items": { "type": "integer", "minimum": 1 },
       "minItems": 1,
-      "uniqueItems": true
+      "uniqueItems": true,
+      "description": "允许该策略签名的链 ID 列表。"
     },
     "limits": {
       "type": "object",
       "additionalProperties": false,
       "required": ["max_value_wei_per_tx", "max_value_wei_per_day"],
       "properties": {
-        "max_value_wei_per_tx": { "type": "string", "pattern": "^[0-9]+$" },
-        "max_value_wei_per_day": { "type": "string", "pattern": "^[0-9]+$" },
-        "max_gas_limit": { "type": "string", "pattern": "^[0-9]+$" }
+        "max_value_wei_per_tx": { "type": "string", "pattern": "^[0-9]+$", "description": "单笔 value 上限，使用十进制 wei 字符串。" },
+        "max_value_wei_per_day": { "type": "string", "pattern": "^[0-9]+$", "description": "周期累计 value 上限，使用十进制 wei 字符串。" },
+        "max_gas_limit": { "type": "string", "pattern": "^[0-9]+$", "description": "单笔 gas limit 上限。" }
       }
     },
     "allowed_contracts": {
       "type": "array",
       "items": { "type": "string", "pattern": "^0x[a-fA-F0-9]{40}$" },
-      "uniqueItems": true
+      "uniqueItems": true,
+      "description": "允许调用的合约地址。"
     },
     "allowed_method_selectors": {
       "type": "array",
       "items": { "type": "string", "pattern": "^0x[a-fA-F0-9]{8}$" },
-      "uniqueItems": true
+      "uniqueItems": true,
+      "description": "允许调用的方法选择器。"
     },
     "blocked_method_selectors": {
       "type": "array",
       "items": { "type": "string", "pattern": "^0x[a-fA-F0-9]{8}$" },
-      "uniqueItems": true
+      "uniqueItems": true,
+      "description": "明确禁止的方法选择器，优先级高于允许列表。"
     },
     "physical_approval_required_for": {
       "type": "array",
       "items": { "type": "string", "enum": ["unknown_contract", "nft_mint", "token_approval", "value_above_soft_limit"] },
-      "uniqueItems": true
+      "uniqueItems": true,
+      "description": "需要额外物理确认的操作类别。"
     },
-    "admin_key_id": { "type": "string", "pattern": "^[a-zA-Z0-9._-]{1,64}$" }
+    "admin_key_id": { "type": "string", "pattern": "^[a-zA-Z0-9._-]{1,64}$", "description": "后续认证 provisioning 中使用的管理员密钥标识。" }
   }
 }

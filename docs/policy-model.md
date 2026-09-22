@@ -1,35 +1,39 @@
-# Policy model
+# 硬策略模型
 
-The hard policy is the ESP32's local authorization contract. The Pi may propose a transaction but cannot change this contract during run mode.
+硬策略是 ESP32 本地的授权契约。Raspberry Pi 可以提出交易，但在运行模式下不能修改这份契约，也不能用一份新的 Pi 配置覆盖它。
 
-## Policy package
+## 策略包包含什么
 
-A policy package contains:
+一个策略包至少描述：
 
-- a schema version and monotonic policy version;
-- supported chain IDs;
-- hard per-transaction and rolling-period limits;
-- allowed contract addresses and method selectors;
-- explicitly blocked methods;
-- operations requiring a separate physical approval;
-- an administrative signature and policy hash in the provisioning format.
+- Schema 版本和单调递增的策略版本；
+- 允许的 chain ID；
+- 单笔和周期累计金额、gas 等硬限额；
+- 允许的合约地址和方法选择器；
+- 明确禁止的方法；
+- 必须追加物理确认的操作；
+- 管理员身份、策略 hash 以及后续 provisioning 所需的认证信息。
 
-The JSON schema in [`protocol/policy.schema.json`](../protocol/policy.schema.json) is a control-plane baseline. Exact canonical serialization, admin-key rotation, rollback protection, and on-device storage format must be specified before production use.
+protocol/policy.schema.json 是当前的控制面数据模型。规范序列化、管理员密钥轮换、回滚保护、设备内存储和完整的策略包签名格式，必须在生产实现前单独冻结。
 
-## Evaluation order
+## 评估顺序
 
-The ESP32 should reject on the first failed check:
+ESP32 应在第一个失败点拒绝交易：
 
-1. framing, size, and schema validation;
-2. supported chain and transaction type;
-3. complete transaction parsing and canonical reconstruction;
-4. destination, method, and value restrictions;
-5. per-transaction and period limits;
-6. replay and nonce rules;
-7. explicit physical-approval requirements.
+1. 帧、长度、字段和 Schema 校验；
+2. chain ID 与交易类型支持情况；
+3. 完整交易解析与规范重建；
+4. 目标地址、方法、value 和 calldata 限制；
+5. 单笔限额与周期累计限额；
+6. nonce、重放和时效规则；
+7. 是否需要物理确认。
 
-Unknown fields, unknown methods, missing limits, and parser ambiguity fail closed.
+未知字段、未知方法、缺少必要限额、超过边界、解析不一致和无法确定语义，都必须 fail closed。
 
-## Installation boundary
+## 策略安装边界
 
-Policy installation is an admin-mode operation initiated by a physical action, with signing disabled while the update is active. The Pi cannot invoke policy installation through the run-mode protocol.
+策略安装是管理模式操作，必须由物理动作触发。进入管理模式后，普通签名暂停；ESP32 校验管理员认证、版本和回滚规则，记录新策略 hash，再恢复运行模式。Pi 不能通过日常运行协议触发安装、重置或放宽策略。
+
+## 为什么策略要放在 ESP32
+
+如果策略只放在 Pi 上，它就只是一份可被联网主机修改的配置文件；如果 ESP32 每次只接收“已检查”的结果，它就无法验证主机是否隐瞒了字段。把策略执行和完整交易解析放在同一个离线边界内，才能让“这笔具体交易是否允许”成为设备自己的判断。

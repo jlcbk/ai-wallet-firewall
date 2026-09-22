@@ -1,27 +1,42 @@
-# Threat model
+# 威胁模型
 
-## Protected assets
+## 保护对象
 
-- The non-exportable private key held by the SE050.
-- The authorization meaning of the installed ESP32 hard policy.
-- User-visible transaction details and spending limits.
-- Auditability of accept, reject, and unknown decisions.
+- SE050 内不可导出的私钥；
+- ESP32 已安装硬策略的授权含义；
+- 用户在设备上看到的交易目标、金额、方法和费用；
+- 拒绝、允许和未知决定的可审计性；
+- 策略版本、策略 hash 以及策略更新过程。
 
-## Primary attacker assumptions
+## 攻击者假设
 
-- The AI/Agent can be manipulated by untrusted content.
-- The Raspberry Pi or its network services can be fully compromised.
-- A caller can send malformed, replayed, oversized, or semantically surprising requests.
-- The host may lie about chain ID, destination, value, calldata, fees, or its own display.
+本项目不假设上游永远诚实或永远在线。威胁模型假设：
 
-## Security goals
+- AI/Agent 可能受到网页、RPC 返回值、合约 calldata 或其他不可信内容的提示注入；
+- Raspberry Pi 或其上的网络服务可能被完全攻破；
+- 调用方可能发送畸形、重放、超大、截断或语义异常的请求；
+- 主机可能伪造 chain ID、收款地址、金额、calldata、费用、nonce 或界面摘要；
+- 交易类型和合约方法可能不断增加，设备无法认识所有未来输入。
 
-1. A compromised Pi cannot export the key or request a signature over an arbitrary digest.
-2. A compromised Pi cannot replace or relax the ESP32 hard policy in run mode.
-3. An unknown transaction type or parser ambiguity produces rejection, not best-effort signing.
-4. The signed payload is the transaction the ESP32 parsed and authorized.
-5. Policy changes are visible, deliberate, authenticated, and physically bounded.
+## 安全目标
 
-## Known limits of this baseline
+1. Pi 被攻破时，攻击者仍不能导出私钥，也不能请求任意 digest 签名。
+2. Pi 被攻破时，攻击者仍不能在运行模式下替换、放宽或重置 ESP32 硬策略。
+3. 未知交易类型、未知方法、解析歧义和不完整输入都会导致拒绝，而不是“尽量签名”。
+4. 最终签名的 payload 必须是 ESP32 自己解析、自己授权的那一笔交易。
+5. 策略修改必须可观察、可认证、受物理动作约束，且修改期间不继续签名。
+6. 缺少、未初始化或状态异常的 SE050 必须让系统拒绝签名。
 
-This document does not yet prove resistance to physical extraction, supply-chain compromise, firmware replacement, side-channel attacks, SE050 configuration mistakes, or every supported chain format. Those are separate implementation and review work items.
+## 主要失效路径
+
+| 失效路径 | 需要避免的结果 | 基线防护 |
+| --- | --- | --- |
+| AI 被提示注入 | 误导用户或生成危险交易 | AI 不在签名边界内，ESP32 重新解析并执行策略 |
+| Pi 被远程控制 | 任意转账或改策略 | Pi 无策略管理权限，ESP32 不接受 raw hash |
+| 主机摘要与真实交易不一致 | 用户以为签的是 A，实际签的是 B | ESP32 接收完整交易并自己计算 hash |
+| 新交易类型未知 | 未定义语义被错误放行 | unknown / unsupported 输入 fail closed |
+| 策略配置被替换 | 攻击者先放宽限额再签名 | 物理管理模式、管理员认证、版本与 hash 校验 |
+
+## 当前基线的已知限制
+
+本文不证明系统已经抵抗物理提取、供应链攻击、固件替换、侧信道攻击、SE050 配置错误、故障注入或所有链格式的解析错误。这些内容必须在后续实现、测试和独立审查中单独完成。

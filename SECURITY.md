@@ -1,26 +1,26 @@
-# Security policy
+# 安全政策
 
-## Scope
+## 项目状态
 
-`ai-wallet-firewall` is an early-stage design and firmware project. It is not yet a production wallet or an audited signing appliance.
+`ai-wallet-firewall` 目前是早期设计与固件边界项目，不是生产钱包，也不是已经完成独立审计的签名设备。仓库中的架构目标、Schema 和文档不能替代代码审查、硬件验证或安全审计。
 
-## Never commit these secrets
+## 严禁提交的秘密
 
-Do not commit, paste into issues, or place in logs or test fixtures:
+以下内容不得提交、粘贴到 issue、写入日志、放入测试夹具，也不得放进截图或公开演示：
 
-- real private keys;
-- seed phrases or mnemonics;
-- SE050 provisioning secrets;
-- admin keys or root keys;
-- RPC credentials, API tokens, or webhook secrets;
-- device backups containing any of the above.
+- 真实私钥；
+- 助记词、seed phrase 或 mnemonic；
+- SE050 provisioning secret；
+- admin key、root key 或其他管理密钥；
+- RPC secret、API token、webhook secret 或云服务凭据；
+- 含有上述信息的设备备份、导出文件或日志。
 
-Use clearly fake placeholders and keep local secrets outside the repository. The included `.gitignore` is a convenience, not a security boundary.
+示例只能使用明确标注的虚假占位符。真实秘密应放在仓库之外，并使用独立的密钥管理和备份流程。`.gitignore` 只是便利措施，不是安全边界。
 
-## Security boundary
+## 安全边界
 
-The AI/Agent and Raspberry Pi are treated as potentially compromised. They may construct requests, but the ESP32 must independently parse the complete unsigned transaction and enforce hard policy before the removable SE050 is asked to sign. The private key remains non-exportable inside the SE050.
+AI/Agent 和 Raspberry Pi 都按“可能已经被攻破”来设计。它们可以构造请求，但 ESP32 必须独立解析完整 unsigned transaction、执行硬策略，然后才允许可拆卸 SE050 参与签名。私钥必须始终留在 SE050 内，不得通过 ESP32 或 Pi 导出。
 
-## Reporting
+## 报告安全问题
 
-Do not open a public issue for a suspected vulnerability that could expose a key or authorize an unintended transaction. Until a private security contact is documented, preserve evidence locally and contact the repository owner through a private GitHub channel.
+如果问题可能导致私钥泄露、绕过硬策略或签出未经授权的交易，不要在公开 issue 中贴出可复现秘密、真实交易或攻击细节。在仓库建立私密安全联系渠道之前，请保留本地证据，并通过 GitHub 私人渠道联系仓库维护者。

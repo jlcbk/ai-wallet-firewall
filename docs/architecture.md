@@ -1,33 +1,47 @@
-# Architecture
+# 系统架构
 
-## Components
+## 设计目标
 
-| Component | Trust posture | Responsibility |
-| --- | --- | --- |
-| AI / Agent | Untrusted | Explain intent and prepare a candidate request. Never sees a private key. |
-| Raspberry Pi | Networked, potentially compromised | Fetch chain data, build complete unsigned transactions, submit requests, and retain audit records. |
-| ESP32-S3-RLCD | Offline policy boundary | Parse the complete unsigned transaction, enforce hard policy, display decision context, and compute the signing hash. |
-| Removable SE050 | Hardware trust anchor | Hold the private key and perform an approved signing operation without key export. |
+系统把“联网、复杂、易变的工作”与“离线、最小、可拒绝的签名边界”分开。上游负责准备候选交易，下游负责判断这笔具体交易是否允许签名。
 
-## Run mode
+## 组件与职责
 
-In run mode, the ESP32 exposes only the minimum request/status surface required by the Pi. Policy installation, reset, firmware update, and raw-hash signing are not run-mode operations.
+| 组件 | 信任姿态 | 主要职责 | 不拥有的权限 |
+| --- | --- | --- | --- |
+| AI / Agent | 不可信 | 解释自然语言意图、准备候选请求、帮助生成策略草案 | 不接触私钥，不做最终授权，不绕过设备策略 |
+| Raspberry Pi | 联网，假设可能被攻破 | 访问 RPC、获取链上信息、构造完整交易、提交请求、记录审计信息 | 不能修改 ESP32 硬策略，不能让 SE050 签任意 hash |
+| ESP32-S3-RLCD | 离线安全边界 | 校验请求、解析完整交易、执行硬策略、显示关键字段、计算签名 hash | 生产固件不启用网络，运行模式不安装策略 |
+| 可拆卸 SE050 | 硬件信任锚 | 持有不可导出的私钥并执行受控签名 | 不负责判断交易语义，不能导出私钥 |
 
-The Pi can be compromised without gaining authority to change the hard policy. The ESP32 does not trust the Pi's interpretation of a transaction, displayed summary, or precomputed digest.
+## 运行模式
 
-## Admin mode
+运行模式只开放完成日常审核所需的最小接口，例如提交完整交易、查询设备状态和获取决定结果。以下操作不属于运行模式：
 
-Policy updates require an explicit physical administration action. Admin mode disables ordinary signing, authenticates the policy package, validates version and rollback rules, and records the installed policy hash before returning to run mode.
+- 安装、重置或放宽硬策略；
+- 请求原始 digest 签名；
+- 通过网络更新生产固件；
+- 在策略修改期间继续普通签名。
 
-The exact button, display, and key ceremony are hardware decisions still to be implemented. The trust boundary is mandatory even while those details remain open.
+即使 Pi 已经被攻破，ESP32 也应当独立判断交易。它不信任 Pi 的交易摘要、界面文字、预先计算的 digest、合约说明或“这只是普通转账”的解释。
 
-## Data path
+## 管理模式
+
+策略更新必须由明确的物理动作触发。进入管理模式后，设备应暂停普通签名，显示当前状态，校验策略包及其管理员签名，检查版本和回滚规则，并记录新策略 hash。只有完成或取消管理流程后，设备才回到运行模式。
+
+按键、显示和管理员密钥仪式属于后续硬件与固件设计，但“运行模式不能修改硬策略”是不可选的安全边界。
+
+## 数据流
 
 ```text
-intent -> Pi candidate transaction -> ESP32 full parse
-      -> hard-policy decision -> local display/approval rules
-      -> ESP32-computed digest -> SE050 signature
-      -> signature/status -> Pi
+用户意图
+   -> AI / Agent
+   -> Raspberry Pi：联网、构造完整 unsigned transaction
+   -> ESP32：校验与完整解析
+   -> ESP32：硬策略决定与本地显示
+   -> ESP32：自己计算 signing hash
+   -> SE050：使用不可导出私钥签名
+   -> ESP32：返回签名和决定元数据
+   -> Raspberry Pi：广播并记录
 ```
 
-No component before the ESP32 may define the digest that the SE050 signs.
+在 ESP32 之前的组件都不能定义 SE050 最终签名的 digest。只有 ESP32 解析过、策略允许的交易，才能进入安全元件签名路径。

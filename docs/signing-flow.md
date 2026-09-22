@@ -1,13 +1,27 @@
-# Signing flow
+# 签名流程
 
-1. The AI/Agent expresses an intent to the Raspberry Pi.
-2. The Pi resolves chain data and constructs one complete unsigned transaction.
-3. The Pi sends the transaction request to the ESP32 over the local transport.
-4. The ESP32 validates framing, schema, sizes, chain ID, nonce, and supported transaction type.
-5. The ESP32 parses all signed fields and calldata itself. It does not accept a host-supplied digest.
-6. The ESP32 evaluates the parsed transaction against the installed hard policy.
-7. If the transaction is unknown, malformed, unsupported, over a limit, or ambiguous, the ESP32 rejects it and does not contact the SE050.
-8. If policy allows it, the ESP32 computes the signing hash from its own parsed representation and asks the SE050 to sign the approved payload.
-9. The ESP32 returns only the signature and decision metadata needed by the Pi.
+下面的流程描述日常运行模式中一笔交易从意图到签名的边界。它不是“把 hash 交给签名器”的流程，而是“让 ESP32 重新理解并授权完整交易”的流程。
 
-The signing interface must be transaction-aware. A future implementation may support multiple chain-specific encodings, but each supported encoding needs a bounded parser, canonical hashing rule, and negative test vectors.
+1. 用户或 AI/Agent 向 Raspberry Pi 表达交易意图。
+2. Pi 访问 RPC，得到 chain ID、nonce、费用等必要链上信息。
+3. Pi 构造一份完整的 unsigned transaction，并保留原始字段。
+4. Pi 通过本地传输向 ESP32 提交交易请求。
+5. ESP32 校验帧边界、长度、协议版本、字段类型和大小限制。
+6. ESP32 检查 chain ID、交易类型、nonce、目标地址、value、费用、calldata 和 access list 等完整字段。
+7. ESP32 自己解析 calldata，识别合约地址和方法选择器，并按规范重建待签名表示。
+8. ESP32 将解析结果与已安装的硬策略比较，包括允许的链、合约、方法、单笔限额和周期限额。
+9. 如果交易未知、畸形、不支持、超限、重放或存在解析歧义，ESP32 直接拒绝，不访问 SE050。
+10. 如果策略允许，ESP32 自己计算 signing hash，并向 SE050 请求对已批准 payload 的签名。
+11. ESP32 返回签名、允许/拒绝结果和必要的决定元数据；Pi 负责广播和审计记录。
+
+## 必须保持的边界
+
+- 请求必须包含完整 unsigned transaction，不能只包含 digest。
+- ESP32 不能信任 Pi 生成的交易摘要、展示文本或“已检查”标记。
+- SE050 不能被包装成任意 sign(hash) 服务。
+- 拒绝路径不能因为调试、重试或网络恢复而自动变成允许路径。
+- 任何未来支持的链或交易类型，都需要自己的有界解析器、规范 hash 规则和负面测试向量。
+
+## 管理模式的例外
+
+策略安装不属于上述日常流程。它必须由物理动作进入管理模式，期间暂停正常签名；完成策略包认证、版本检查和落盘校验后，才可以退出管理模式。

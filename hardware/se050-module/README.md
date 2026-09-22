@@ -1,17 +1,23 @@
-# Removable SE050 module
+# 可拆卸 SE050 模块
 
-The SE050 is the signing trust anchor. It holds a non-exportable private key and performs signing only after the ESP32 has parsed and authorized the complete transaction.
+SE050 是本项目的硬件信任锚。它保存不可导出的私钥，只在 ESP32 已经解析并授权完整交易之后执行受控签名。
 
-## Boundary
+## 模块边界
 
-- The module is removable from the ESP32 assembly for controlled provisioning, maintenance, and replacement.
-- The Raspberry Pi and AI/Agent never receive the private key.
-- The ESP32 must not expose a raw-hash signing capability to the Pi.
-- Provisioning secrets, admin/root keys, and real device credentials stay outside Git.
+- 模块从 ESP32 组件中可拆卸，便于受控 provisioning、维护、替换和单独验证；
+- Raspberry Pi 和 AI/Agent 永远不能得到私钥；
+- ESP32 不能向 Pi 暴露 raw-hash 签名能力；
+- provisioning secret、admin/root key 和真实设备凭据永远留在 Git 之外；
+- 模块缺失、未初始化、认证失败或状态异常时，系统必须拒绝签名。
 
-## Open implementation work
+## 为什么采用可拆卸设计
 
-- finalize the electrical connector and presence detection;
-- define SE050 object IDs, access conditions, and provisioning ceremony;
-- validate reset, removal, replacement, and recovery behavior;
-- test that a missing or uninitialized module fails closed.
+可拆卸并不意味着“方便任何人拿走私钥”，而是把安全元件、主控和网关分成可独立验证的边界。后续可以分别测试：SE050 的密钥不可导出、模块存在检测、掉电行为、替换流程和恢复流程，而不必把全部假设藏在 Raspberry Pi 软件中。
+
+## 待实现工作
+
+- 确定连接器、电气接口和模块存在检测；
+- 定义 SE050 object ID、访问条件和 provisioning 仪式；
+- 验证复位、拔出、替换、未初始化和恢复行为；
+- 证明缺少或异常的模块会 fail closed；
+- 建立不包含真实秘密的模拟和负面测试向量。

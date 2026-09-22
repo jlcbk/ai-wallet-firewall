@@ -1,15 +1,24 @@
-# ESP32-S3-RLCD boundary
+# ESP32-S3-RLCD：离线签名防火墙边界
 
-The ESP32-S3-RLCD is the offline signing firewall. It is responsible for the hard policy, complete transaction parsing, display of the relevant decision context, and the local request to the removable SE050.
+ESP32-S3-RLCD 是本项目的最终交易审核边界。它不是一个被动的 USB 转发器，也不是一个只接受 digest 的签名适配器。
 
-## Required behavior
+## 必须承担的职责
 
-- no production networking;
-- no arbitrary `sign(hash)` API;
-- parse the complete unsigned transaction locally;
-- compute the signing hash locally from the parsed transaction;
-- reject malformed, unknown, unsupported, oversized, or ambiguous input;
-- keep policy installation behind physical admin mode;
-- stop normal signing while admin mode is active.
+- 在生产固件中不启用网络；
+- 接收并解析完整的 unsigned transaction；
+- 独立检查交易类型、chain ID、目标、金额、费用、calldata、nonce 等字段；
+- 根据本地硬策略作出允许或拒绝决定；
+- 在屏幕上显示足够的关键上下文供用户检查；
+- 从自己解析的交易表示计算 signing hash；
+- 仅在策略允许时请求可拆卸 SE050 签名；
+- 对畸形、未知、不支持、超大或有歧义的输入 fail closed；
+- 通过物理管理模式安装策略，并在管理模式中暂停普通签名。
 
-The firmware is not implemented by this baseline. Any implementation must preserve the invariants in the repository root `AGENTS.md`.
+## 明确禁止的接口
+
+- 任意 sign(hash) 或等价的 raw-digest 接口；
+- 由 Pi 提供“我已经解析过了”的布尔结果来代替 ESP32 解析；
+- 运行模式下修改、重置或放宽硬策略；
+- 生产设备的联网更新或远程管理入口。
+
+本仓库当前还没有实现固件。任何后续实现都必须先遵守根目录 AGENTS.md 的安全不变量，并分别记录模拟器、固件和真实硬件证据。

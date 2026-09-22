@@ -1,24 +1,35 @@
-# Agent instructions
+# Agent 工作规则
 
-This repository defines a security boundary, not merely a transaction relay. Keep changes small, explicit, and reviewable. Do not weaken a security invariant to make a demo pass.
+本仓库定义的是一个安全边界，而不是普通的交易转发器。保持修改小、明确、可审查；不能为了让演示跑通而削弱任何安全不变量。
 
-## Mandatory security invariants
+## 强制安全不变量
 
-1. Never expose an arbitrary `sign(hash)` or equivalent raw-digest signing API.
-2. Private keys must never be exported from the SE050, ESP32, Raspberry Pi, logs, fixtures, or documentation.
-3. The Raspberry Pi has no authority to modify the ESP32 hard policy in run mode.
-4. The ESP32 must receive and parse the complete unsigned transaction and compute the signing hash itself before requesting a signature.
-5. Unknown, malformed, unsupported, or ambiguously decoded transactions fail closed.
-6. Policy installation requires an explicit physical administration flow; ordinary Pi traffic cannot install or reset policy.
-7. Production firmware must disable networking on the ESP32 signing device. Communication is limited to the intended local transport.
-8. Admin mode must not silently continue normal signing while policy changes are being made.
-9. Every protocol change must update its schema, documentation, and negative test vectors before implementation is treated as complete.
+1. 永远不得暴露任意 `sign(hash)` 或等价的原始摘要签名 API。
+2. 私钥永远不得从 SE050、ESP32、Raspberry Pi、日志、测试夹具或文档中导出、复制或打印。
+3. Raspberry Pi 在运行模式下无权修改 ESP32 的硬策略。
+4. ESP32 必须接收并解析完整的 unsigned transaction，在请求签名之前由自己计算 signing hash。
+5. 未知、畸形、不支持或存在解析歧义的交易必须 fail closed，直接拒绝。
+6. 策略安装必须经过明确的物理管理流程；普通 Pi 流量不能安装、重置或放宽策略。
+7. 生产固件必须禁用 ESP32 签名设备的网络能力；通信仅限于设计好的本地传输。
+8. 管理模式不能在修改策略时悄悄继续正常签名。
+9. 每次协议变化都必须同步更新 Schema、说明文档和负面测试向量，之后才能把实现视为完整。
 
-## Working rules
+## 对人和 Agent 的工作要求
 
-- Treat all Pi and AI/Agent input as untrusted.
-- Prefer deterministic, canonical encodings and bounded parsers.
-- Reject unknown fields when they could change authorization semantics.
-- Keep simulator evidence, firmware evidence, and physical-device evidence separate.
-- Never add credentials or real transaction secrets to examples, tests, commits, or issue text.
-- A compile or schema check does not prove device security or transaction correctness.
+- 把 Pi、AI/Agent、网络数据和链上 calldata 都当作不可信输入。
+- 优先使用确定性的规范编码和有界解析器。
+- 只要未知字段可能改变授权语义，就必须拒绝，而不是忽略。
+- 严格区分模拟器证据、固件证据和真实设备证据。
+- 不要把凭据、真实交易秘密或设备信息加入示例、测试、commit 或 issue。
+- 编译通过或 Schema 校验通过，不能证明设备安全、交易语义正确或物理行为正确。
+
+## 修改前检查
+
+修改协议、解析器、策略或签名路径前，先阅读：
+
+1. [威胁模型](docs/threat-model.md)；
+2. [架构说明](docs/architecture.md)；
+3. [签名流程](docs/signing-flow.md)；
+4. 对应的协议 Schema。
+
+如果一个改动让 Pi 获得更多权限、让 ESP32 少解析一个字段、让未知输入继续执行，或让策略修改不再需要物理动作，它就是安全边界变化，不能作为普通重构处理。
