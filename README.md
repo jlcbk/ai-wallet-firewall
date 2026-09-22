@@ -42,8 +42,31 @@ Raspberry Pi 可以提出“请签这笔完整交易”，但不能提出“请�
 | Raspberry Pi | 联网网关 | 访问 RPC、获取 nonce 和费用、构造完整交易、提交请求、记录审计信息 | 不能修改 ESP32 硬策略，不能要求签任意 hash，不能成为签名权威 |
 | ESP32-S3-RLCD | 离线安全边界 | 解析完整 unsigned transaction、显示关键字段、执行硬策略、计算签名 hash | 生产固件不启用网络，运行模式不接受策略修改 |
 | 可拆卸 SE050 | 硬件信任锚 | 保存私钥并执行受控签名 | 不能导出私钥，不能替代 ESP32 做交易语义判断 |
+| 智能合约钱包 | 链上资产账户 | 保存资产、验证 signer、执行阈值和恢复规则 | 不能依赖单一不可恢复的 SE050 私钥 |
 
 这个结构的关键不是“使用了多少设备”，而是**每一层只拥有完成自己工作所需的权限**。即使 Raspberry Pi 失陷，也不应因此获得修改硬策略或任意签名的能力。
+
+## 设备安全与资产恢复是两层防护
+
+本项目同时解决两个不同的问题：
+
+### 设备层：SE050 被拆走怎么办
+
+SE050 不是一个可以随便插到其他主机上的 USB 签名棒。生产配置应让它与指定 ESP32 进行 host binding，使用每台设备独有的 SCP03 密钥，并强制所有会话加密和认证；签名对象还要使用最小权限策略。ESP32 侧则需要 Secure Boot、Flash Encryption、关闭调试入口、模块身份检查以及拔插后的重新认证。
+
+这样做的目标是：**单独拿走 SE050，不能直接把它变成可用签名器**。这些措施不能替代链上撤销，所以失窃时仍然必须走资产账户的 signer rotation。
+
+### 资产层：SE050 损坏或丢失怎么办
+
+重要资产不直接放在由单个 SE050 私钥控制的不可恢复 EOA 中，而放入具备 signer 替换和恢复能力的智能合约钱包：
+
+```text
+日常交易：ESP32 + SE050 signer
+资产账户：Smart Contract Wallet
+恢复路径：独立离线 recovery signer
+```
+
+SE050 只负责日常签名；恢复 signer 不在 Pi、ESP32 或同一个模块中。SE050 丢失后，可以用恢复 signer 在链上移除旧 signer、添加新设备，而不需要导出旧私钥。完整设计见 [资产恢复模型](docs/recovery-model.md)。
 
 ## 一笔交易如何流动
 
@@ -56,7 +79,7 @@ Raspberry Pi 可以提出“请签这笔完整交易”，但不能提出“请�
 7. ESP32 用本地硬策略检查目标地址、方法选择器、金额、gas、每日限额、nonce 和特殊操作。
 8. 如果交易未知、畸形、不支持、超限或有歧义，ESP32 直接拒绝，不接触 SE050。
 9. 只有通过检查的交易，才由 ESP32 自己计算 signing hash，并请求 SE050 签名。
-10. ESP32 返回签名和必要的决定元数据，Pi 负责后续广播和记录。
+10. ESP32 返回签名和必要的决定元数据，Pi 将签名提交给智能合约钱包并负责广播和记录。
 
 整个流程中，**没有一个上游组件能够把任意 digest 直接塞给 SE050**。
 
@@ -122,7 +145,8 @@ ai-wallet-firewall/
 │   ├── architecture.md                 # 组件、信任边界和数据流
 │   ├── threat-model.md                 # 资产、攻击者假设和安全目标
 │   ├── signing-flow.md                 # 逐步签名流程与拒绝条件
-│   └── policy-model.md                 # 硬策略、评估顺序和管理模式
+│   ├── policy-model.md                 # 硬策略、评估顺序和管理模式
+│   └── recovery-model.md                # 智能合约钱包与 signer 恢复流程
 ├── protocol/
 │   ├── README.md                       # 协议基线说明
 │   ├── policy.schema.json               # ESP32 硬策略数据模型
@@ -151,13 +175,21 @@ ai-wallet-firewall/
 - 想理解整体设计：阅读 [架构说明](docs/architecture.md) 和 [威胁模型](docs/threat-model.md)。
 - 想理解一次交易如何被拒绝或签名：阅读 [签名流程](docs/signing-flow.md)。
 - 想讨论策略字段和管理边界：阅读 [策略模型](docs/policy-model.md) 与 [协议基线](protocol/README.md)。
+- 想理解 SE050 丢失后的资产恢复：阅读 [资产恢复模型](docs/recovery-model.md)。
 - 想让 Agent 继续开发：先阅读 [AGENTS.md](AGENTS.md)，再检查实现是否保留所有安全不变量。
 
 ## 搜索关键词
 
-中文搜索：`AI 钱包`、`AI 签名防火墙`、`加密货币签名安全`、`树莓派 钱包`、`ESP32 离线签名`、`SE050 私钥不可导出`、`硬策略 钱包`、`交易解析 签名`、`防止任意 sign(hash)`、`提示注入 链上交易`。
+中文搜索：`AI 钱包`、`AI 签名防火墙`、`加密货币签名安全`、`树莓派 钱包`、`ESP32 离线签名`、`SE050 私钥不可导出`、`SE050 模块被盗`、`智能合约钱包恢复`、`signer rotation`、`硬策略 钱包`、`交易解析 签名`、`防止任意 sign(hash)`、`提示注入 链上交易`。
 
 English search: `AI wallet firewall`, `agent-controlled crypto signing`, `Raspberry Pi wallet gateway`, `ESP32 offline transaction parser`, `SE050 non-exportable private key`, `transaction-aware signer`, `fail-closed crypto wallet`, `no arbitrary sign hash`.
+
+## 相关技术参考
+
+- [NXP AN12662：Binding a host device to EdgeLock SE05x](https://www.nxp.com/docs/en/application-note/AN12662.pdf)：SE050 与指定主控绑定、SCP03 和安全启动思路。
+- [NXP AN12413：SE050 APDU Specification](https://www.nxp.com/docs/en/application-note/AN12413.pdf)：安全对象、认证、对象策略和密钥生命周期。
+- [Safe Smart Account 概览](https://docs.safe.global/advanced/smart-account-overview)：多 signer、threshold、owner 替换和智能账户模型参考。
+- [Ethereum Account Abstraction](https://ethereum.org/roadmap/account-abstraction)：智能合约账户与密钥恢复能力的背景说明。
 
 ## 许可证与安全提醒
 

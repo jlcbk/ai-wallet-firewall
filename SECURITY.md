@@ -12,6 +12,7 @@
 - 助记词、seed phrase 或 mnemonic；
 - SE050 provisioning secret；
 - admin key、root key 或其他管理密钥；
+- recovery signer 的私钥、助记词、恢复份额或 seed backup；
 - RPC secret、API token、webhook secret 或云服务凭据；
 - 含有上述信息的设备备份、导出文件或日志。
 
@@ -20,6 +21,8 @@
 ## 安全边界
 
 AI/Agent 和 Raspberry Pi 都按“可能已经被攻破”来设计。它们可以构造请求，但 ESP32 必须独立解析完整 unsigned transaction、执行硬策略，然后才允许可拆卸 SE050 参与签名。私钥必须始终留在 SE050 内，不得通过 ESP32 或 Pi 导出。
+
+资产恢复不依赖导出 SE050 私钥。重要资产应由具备 signer rotation 能力的智能合约钱包持有，recovery signer 必须独立离线保存，并且不能与 Pi、ESP32 或 SE050 运行密钥共用。智能合约、恢复模块和阈值配置本身也必须经过单独的代码审查与演练。
 
 ## 报告安全问题
 

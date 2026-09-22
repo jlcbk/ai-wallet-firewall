@@ -10,7 +10,7 @@ Raspberry Pi 是联网和复杂编排层。它可以访问 RPC、获取链上状
 - 获取 nonce、gas、费用和网络状态；
 - 根据用户或 AI/Agent 的意图构造完整交易；
 - 将完整交易交给 ESP32，而不是提交预先计算的 digest；
-- 接收 ESP32 的签名结果并广播；
+- 接收 ESP32 的签名结果，提交给智能合约钱包或 relayer 并广播；
 - 保留可审计的请求、决定和广播状态。
 
 ## 明确限制
@@ -20,6 +20,8 @@ Raspberry Pi 是联网和复杂编排层。它可以访问 RPC、获取链上状
 - 永远不要求 ESP32 签任意 hash；
 - 不把主机侧交易摘要当作最终事实；
 - 不暴露运行模式下修改 ESP32 硬策略的操作；
+- 不成为智能合约钱包 owner，也不持有 recovery signer；
+- 不单独发起 owner、threshold、signer rotation 或 recovery module 变更；
 - 不因为网络重试、超时或用户界面状态而把一次拒绝自动改成允许。
 
-Pi 侧实现必须兼容 protocol/ 中的 Schema，但最终的交易解析和硬策略决定始终属于 ESP32。
+Pi 侧实现必须兼容 protocol/ 中的 Schema，但最终的交易解析和硬策略决定始终属于 ESP32。资产恢复属于独立的链上 recovery signer 流程，不是 Pi 的运行时故障转移接口。
